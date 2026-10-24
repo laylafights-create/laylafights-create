@@ -169,8 +169,7 @@ public class EnemyDetectorModule extends HudModule {
 
         if (newcomer) flash = 24;
         if (alert.value && newcomer && cooldown == 0) {
-            mc.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
-                    SoundEvents.NOTE_BLOCK_PLING.value(), 1.5f));
+            dev.lunarlite.SaoFx.ui("alert.enemy", 1f);
             cooldown = 20;
         }
 
