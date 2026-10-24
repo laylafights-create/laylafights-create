@@ -158,7 +158,7 @@ public class LunarLite implements ClientModInitializer {
                     if (BRIDGE != null) BRIDGE.onRender(pt);
                     renderHud();
                     Minecraft cm = Minecraft.getInstance();
-                    if (cm.player != null && !cm.options.hideGui) {
+                    if (cm.player != null && !Compat.hideGui()) {
                         dev.lunarlite.gui.ChatView.render(cm.getWindow().getGuiScaledWidth(), cm.getWindow().getGuiScaledHeight());
                     }
                 });
@@ -220,7 +220,7 @@ public class LunarLite implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance();
         CpsModule.poll();
         if (ZOOM != null) ZOOM.frame();
-        if (mc.player == null || mc.options.hideGui) return;
+        if (mc.player == null || Compat.hideGui()) return;
         if (Compat.screen() instanceof HudEditorScreen) return;
         int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
         float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
