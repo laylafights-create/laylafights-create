@@ -19,6 +19,9 @@ public final class TeamUtil {
     private static final String COLORS = "0123456789abcdef";
     private static final EquipmentSlot[] ARMOR = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
+    private static final int[] LEGACY_RGB = {0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xFFAA00, 0xAAAAAA,
+            0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF};
+
     private TeamUtil() {}
 
     private static final class Verdict { long until; boolean mate; }
@@ -83,9 +86,10 @@ public final class TeamUtil {
         c.visit((style, text) -> {
             var col = style.getColor();
             if (col != null) {
-                for (net.minecraft.ChatFormatting f : net.minecraft.ChatFormatting.values()) {
-                    if (f.isColor() && f.getColor() != null && f.getColor() == (col.getValue() & 0xFFFFFF)) {
-                        sb.append('§').append(f.getChar());
+                int rgb = col.getValue() & 0xFFFFFF;
+                for (int i = 0; i < LEGACY_RGB.length; i++) {
+                    if (LEGACY_RGB[i] == rgb) {
+                        sb.append('§').append(COLORS.charAt(i));
                         break;
                     }
                 }

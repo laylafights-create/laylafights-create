@@ -187,10 +187,10 @@ public class ChatBarModule extends Module {
                 boolean same = res == null || res[1].equalsIgnoreCase(translateTo)
                         || res[0].trim().equalsIgnoreCase(body.trim());
                 if (hide) {
-                    mc.player.displayClientMessage(same ? message
-                            : Component.literal("§7" + name + ": §f" + res[0] + " §8(dịch)"), false);
+                    dev.lunarlite.Compat.chat(mc.player, same ? message
+                            : Component.literal("§7" + name + ": §f" + res[0] + " §8(dịch)"));
                 } else if (!same) {
-                    mc.player.displayClientMessage(Component.literal("§8  ↳ §7" + res[0]), false);
+                    dev.lunarlite.Compat.chat(mc.player, Component.literal("§8  ↳ §7" + res[0]));
                 }
             });
         });
@@ -419,8 +419,8 @@ public class ChatBarModule extends Module {
             if (mc.level != null) {
                 var team = mc.level.getScoreboard().getPlayersTeam(name);
                 if (team != null) {
-                    var cf = team.getColor();
-                    if (cf != null && cf.getColor() != null) c = cf.getColor() & 0xFFFFFF;
+                    int cf = dev.lunarlite.Compat.teamRgb(team);
+                    if (cf >= 0) c = cf & 0xFFFFFF;
                     if (c == -1 && team.getPlayerPrefix() != null) {
                         var tc = team.getPlayerPrefix().getStyle().getColor();
                         if (tc != null) c = tc.getValue() & 0xFFFFFF;
@@ -468,8 +468,8 @@ public class ChatBarModule extends Module {
             final Minecraft mc = Minecraft.getInstance();
             if (!ok) {
                 mc.execute(() -> {
-                    if (mc.player != null) mc.player.displayClientMessage(Component.literal(
-                            "§c[Chat Bar] Không dịch được (lỗi mạng / Google giới hạn), đã gửi nguyên văn."), false);
+                    if (mc.player != null) dev.lunarlite.Compat.chat(mc.player, Component.literal(
+                            "§c[Chat Bar] Không dịch được (lỗi mạng / Google giới hạn), đã gửi nguyên văn."));
                 });
             }
             for (int i = 0; i < parts.size(); i++) {
@@ -485,7 +485,7 @@ public class ChatBarModule extends Module {
             }
             if (ok && SHOW_OUT_ECHO.value && !translated.equals(text)) {
                 mc.execute(() -> {
-                    if (mc.player != null) mc.player.displayClientMessage(Component.literal("§8  ↳ §7" + translated), false);
+                    if (mc.player != null) dev.lunarlite.Compat.chat(mc.player, Component.literal("§8  ↳ §7" + translated));
                 });
             }
         });

@@ -258,8 +258,8 @@ public class KillBoardModule extends HudModule {
         PlayerTeam team = info.getTeam();
         var c = team.getPlayerPrefix().getStyle().getColor();
         if (c != null) return 0xFF000000 | (c.getValue() & 0xFFFFFF);
-        var f = team.getColor();
-        if (f != null && f.getColor() != null) return 0xFF000000 | f.getColor();
+        int f = dev.lunarlite.Compat.teamRgb(team);
+        if (f >= 0) return 0xFF000000 | f;
         return 0xFFFFFFFF;
     }
 
