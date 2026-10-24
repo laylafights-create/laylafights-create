@@ -30,8 +30,6 @@ public final class SaoShatter {
         int color;
     }
 
-    private static final ArrayList<Shard> LIST = new ArrayList<Shard>();
-
     private static final ArrayList<Shard> LIST = new ArrayList<>();
 
     public static void clear() { LIST.clear(); }

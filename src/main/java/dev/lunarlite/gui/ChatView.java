@@ -178,7 +178,7 @@ public final class ChatView {
         if (mc.level == null || mc.player == null || !takeover()) return;
         checkLevel();
         if (!preview && !vanillaHidden()) return;
-        boolean open = preview || mc.screen instanceof ChatScreen;
+        boolean open = preview || dev.lunarlite.Compat.screen() instanceof ChatScreen;
         boolean glass = ChatBarModule.CHAT_GLASS.value && !ChatBarModule.HIDE_CHAT_BACKGROUND.value
                 && !ChatBarModule.FIT_CHAT_BACKGROUND.value;
         if (LINES.isEmpty() && !(glass && open)) return;
