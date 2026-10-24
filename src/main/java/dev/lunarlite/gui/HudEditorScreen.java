@@ -180,11 +180,19 @@ public class HudEditorScreen extends Screen {
         Draw.fill(kx, ty, kx + 7, ty + 8, 0xFFFFFFFF);
     }
 
+    /** Hàng xám kiểu SAO của trình sửa HUD (riêng, khác Skin.saoRow): chuyển màu dọc, vệt sáng mép trên, gờ tối mép dưới. */
+    private static void saoRow(int x, int y, int w, int h, float hov) {
+        Skin.vgrad(x, y, x + w, y + h, Draw.lerp(0xF0D2D6DB, 0xF0F6F8FA, hov), Draw.lerp(0xF0B0B5BB, 0xF0DADFE3, hov));
+        Draw.fill(x, y, x + w, y + 1, 0x99FFFFFF);
+        Draw.fill(x, y + h - 1, x + w, y + h, 0xFF7C838A);
+        Draw.fill(x, y + h, x + w, y + h + 1, 0x33000000);
+    }
+
     private float drawFlatBtn(int[] b, int x, int y, int w, int h, String label, boolean over, float hov) {
         if (b != null) { b[0] = x; b[1] = y; b[2] = w; b[3] = h; }
         hov += ((over ? 1f : 0f) - hov) * smooth();
         if (Math.abs((over ? 1f : 0f) - hov) < 0.01f) hov = over ? 1f : 0f;
-        Skin.saoRow(x, y, w, h, hov);
+        saoRow(x, y, w, h, hov);
         Draw.fill(x, y, x + 3, y + h, Draw.lerp(0xFFB9770E, ORANGE, hov));
         String t = Draw.fit(label, w - 14);
         ink(t, x + (w - Draw.width(t)) / 2f + 1, y + (h - 8) / 2f, INK);
@@ -294,7 +302,7 @@ public class HudEditorScreen extends Screen {
         Draw.push();
         Draw.translate((1f - st) * 22f, 0f);
 
-        Skin.saoRow(x, y, w, h, hov);
+        saoRow(x, y, w, h, hov);
         if (r.kind == K_SLIDER) {
             int fw = (int) Math.round(((SliderSetting) r.s).ratio() * w);
             Draw.fill(x, y, x + fw, y + h - 1, 0x66F0A30A);

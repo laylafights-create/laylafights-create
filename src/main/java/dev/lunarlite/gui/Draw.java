@@ -214,15 +214,23 @@ public final class Draw {
     /** Hình tròn đầy, màu chuyển từ tâm (cIn) ra mép (cOut). */
     public static void disc(float cx, float cy, float r, int cIn, int cOut) {
         if (r <= 0f) return;
+        boolean solid = cIn == cOut;
         int y0 = (int) Math.floor(cy - r), y1 = (int) Math.ceil(cy + r);
+        int runL = 0, runR = 0, runY = 0, runS = 0;
+        boolean run = false;
         for (int y = y0; y < y1; y++) {
             float dy = (y + 0.5f) - cy;
             float hw2 = r * r - dy * dy;
             if (hw2 <= 0f) continue;
             float hw = (float) Math.sqrt(hw2);
-            int c = cIn == cOut ? cIn : lerp(cIn, cOut, Math.abs(dy) / r);
-            fill(Math.round(cx - hw), y, Math.round(cx + hw), y + 1, c);
+            int l = Math.round(cx - hw), rr = Math.round(cx + hw);
+            if (!solid) { fill(l, y, rr, y + 1, lerp(cIn, cOut, Math.abs(dy) / r)); continue; }
+            // màu đặc: gộp các dòng liên tiếp cùng độ rộng thành một lệnh vẽ
+            if (run && l == runL && rr == runR && y == runY) { runY = y + 1; continue; }
+            if (run) fill(runL, runS, runR, runY, cIn);
+            runL = l; runR = rr; runY = y + 1; run = true; runS = y;
         }
+        if (run) fill(runL, runS, runR, runY, cIn);
     }
 
     public static void disc(float cx, float cy, float r, int c) {

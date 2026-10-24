@@ -52,6 +52,8 @@ public class MenuScreen extends Screen {
     private static final int DETAIL_X = 302, HOME_OFF = 122, GROUP_DX = 126;
     private static final float DET_CENTER_OFF = (VW - ((CPX - HOME_OFF) + (VW - PAD - 10))) / 2f;
     private static final int SAO_ORANGE = 0xFFF0A30A;
+    /** y chân nhân vật (như bản 1.8.9): thân cao ~137 nên đầu sát dưới thanh tiêu đề. */
+    private static final int ARM_FEET = CPY + CPH - 46;
     private static final int[] ICON_COLORS = {
         0xFF3FB86F, 0xFFE8505B, 0xFFF0A30A, 0xFF3F8EF0, 0xFF9B59D6, 0xFF1FB5A8, 0xFFE0609E, 0xFFD9A400
     };
@@ -65,7 +67,7 @@ public class MenuScreen extends Screen {
             K_ACTION = 6, K_RESET = 7;
 
     private static final class DRow {
-        int kind, y, h = ROW;
+        int kind, y, h = ROW, id;
         String header;
         Setting s;
         Module m;
@@ -103,6 +105,7 @@ public class MenuScreen extends Screen {
     private int pressCircle = -1, lastHoverSfx = -1;
     private long pressAt;
     private boolean soundOpened;
+    private float txK = 1f, txX0, txY0; // phép biến đổi khung ảo -> toạ độ GUI (để vẽ mô hình 3D đúng chỗ)
 
     private final long openStart;
     private long closeStart;
@@ -145,11 +148,12 @@ public class MenuScreen extends Screen {
 
     private int vy(double my) { return Math.round((float) ((my - height / 2f) / ui() + VH / 2f)); }
 
+    /**
+     * Ở 26.x {@code enableScissor} đã được nhân với ma trận pose hiện tại, nên truyền thẳng toạ độ khung ảo
+     * (không tự đổi sang toạ độ màn hình nữa, nếu không sẽ bị biến đổi 2 lần => vùng cắt lệch phải, mất mép trái hàng).
+     */
     private void clip(int x, int y, int w, int h) {
-        float u = ui();
-        int rx = Math.round((x + ctrCur - VW / 2f) * u + width / 2f);
-        int ry = Math.round((y - VH / 2f) * u + height / 2f);
-        Draw.scissor(rx, ry, Math.round(w * u), Math.round(h * u));
+        Draw.scissor(x, y, w, h);
     }
 
     private int paneX() { return DETAIL_X; }
@@ -493,9 +497,10 @@ public class MenuScreen extends Screen {
         row(K_HEADER, null, "");
         row(K_RESET, null, null);
 
-        int y = 4;
+        int y = 4, bid = 0;
         for (DRow r : rows) {
             r.y = y;
+            r.id = r.kind == K_HEADER ? 0 : bid++;
             y += r.h;
         }
         contentH = y + 4;
@@ -570,6 +575,9 @@ public class MenuScreen extends Screen {
         ctrCur += (ctrT - ctrCur) * k;
         if (Math.abs(ctrT - ctrCur) < 0.2f) ctrCur = ctrT;
 
+        txK = kk;
+        txX0 = width / 2f + (-VW / 2f + ctrCur) * kk;
+        txY0 = height / 2f + (1f - op) * 10f - VH / 2f * kk;
         Draw.push();
         Draw.translate(width / 2f, height / 2f + (1f - op) * 10f);
         Draw.scale(kk, kk);
@@ -624,62 +632,206 @@ public class MenuScreen extends Screen {
         Draw.pop();
     }
 
-    // ---- thẻ nhân vật
+    // ---- thẻ nhân vật (port 1:1 từ drawHome của bản 1.8.9)
 
     private void drawCharacterCard(float pa, long now) {
         Minecraft mc = Minecraft.getInstance();
         Draw.push();
         Draw.translate(-(1f - pa) * 36f, 0f);
+        // nghiêng nhẹ rồi dựng thẳng khi vào
+        Draw.translate(CPX + CPW / 2f, CPY + CPH / 2f);
+        Draw.rotate((float) Math.toRadians(-(1f - Math.min(1f, pa)) * 5f));
+        Draw.translate(-(CPX + CPW / 2f), -(CPY + CPH / 2f));
         Draw.fill(CPX - 1, CPY - 1, CPX + CPW + 1, CPY + CPH + 2, 0x55000000);
         Skin.vgrad(CPX, CPY, CPX + CPW, CPY + CPH, 0xFFFCFCFD, 0xFFEBECEE);
         Skin.vgrad(CPX, CPY, CPX + CPW, CPY + 22, 0xFFF3F4F5, 0xFFE0E2E4);
         Draw.fill(CPX, CPY + 22, CPX + CPW, CPY + 23, 0xFFD2D4D6);
-        Draw.fadeLine(CPX + 10, CPY + 23, CPW - 20, Draw.ACCENT & 0xFFFFFF, 0x90);
+        Draw.fadeLine(CPX + 10, CPY + 23, CPW - 20, Draw.ACCENT & 0xFFFFFF, 0x90); // vạch màu nhấn dưới tiêu đề
+        Draw.fill(CPX, CPY + 24, CPX + CPW, CPY + 40, 0x0AFFFFFF);                  // ánh sáng nhẹ đầu thẻ
+
+        // tên người chơi: phóng to, canh giữa tiêu đề, xám than + bóng nhấn nhẹ
         String pname = mc.player != null ? mc.player.getName().getString() : "Zhwii";
         int nw = Math.max(1, Draw.width(pname));
         float ns = Math.min(2.0f, (CPW - 20f) / nw);
-        float nx = CPX + (CPW - nw * ns) / 2f, ny = CPY + (22f - 8f * ns) / 2f + 0.5f;
-        text(pname, nx + 1, ny + 1, ns, Draw.withAlpha(Draw.ACCENT & 0xFFFFFF, 0x55), false);
-        text(pname, nx, ny, ns, 0xFF26303B, false);
+        float nx = CPX + (CPW - nw * ns) / 2f;
+        float ny = CPY + (22f - 8f * ns) / 2f + 0.5f;
+        Draw.push();
+        Draw.translate(nx, ny);
+        Draw.scale(ns, ns);
+        Draw.text(pname, 1, 1, Draw.withAlpha(Draw.ACCENT & 0xFFFFFF, 0x55), false);
+        Draw.text(pname, 0, 0, 0xFF26303B, false);
+        Draw.pop();
+
+        // dấu ngoặc ở góc thẻ, nhấp nháy nhẹ như cửa sổ hologram
         int brA = 120 + Math.round(70f * (float) Math.sin(now / 520.0));
         Skin.brackets(CPX - 3, CPY - 3, CPW + 6, CPH + 8, 7, (brA << 24) | (Draw.ACCENT & 0xFFFFFF));
 
-        // khung mặt người chơi ở giữa (bản 26.2 không có mô hình 3D)
-        int ex0 = CPX + CPW / 2;
-        int hs = 64, hx = ex0 - hs / 2, hy = CPY + 50;
-        Draw.rrect(hx - 4, hy - 4, hx + hs + 4, hy + hs + 4, 6, 0xFFB4B9BE);
-        Draw.rrect(hx - 3, hy - 3, hx + hs + 3, hy + hs + 3, 5, 0xFFEDEEEF);
-        boolean drew = false;
-        if (mc.player != null && mc.getConnection() != null) {
-            drew = Draw.head(mc.getConnection().getPlayerInfo(mc.player.getUUID()), hx, hy, hs);
-        }
-        if (!drew) {
-            Draw.rrect(hx, hy, hx + hs, hy + hs, 3, 0xFF9AA0A6);
-            String ini = pname.isEmpty() ? "?" : pname.substring(0, 1).toUpperCase();
-            Draw.centered(ini, ex0, hy + hs / 2f - 4, 0xFFFFFFFF, true);
-        }
-
-        // 4 ô giáp xếp dưới mặt, ô lõm kiểu SAO
-        int n = 4, cell = 22, gap = 8, rowW = n * cell + (n - 1) * gap;
-        int ax = ex0 - rowW / 2, ay = hy + hs + 16;
-        for (int a2 = 0; a2 < n; a2++) {
-            int sx = ax + a2 * (cell + gap), sy = ay;
-            Draw.fill(sx, sy, sx + cell, sy + cell, 0xFFEDEEEF);
-            Draw.fill(sx + 1, sy + 1, sx + cell - 1, sy + cell - 1, 0xFF7C848B);
-            Draw.fill(sx + 1, sy + 1, sx + cell - 1, sy + 3, 0x55000000);
-            Draw.fill(sx + 1, sy + 1, sx + 3, sy + cell - 1, 0x33000000);
-            Draw.fill(sx + 1, sy + cell - 3, sx + cell - 1, sy + cell - 1, 0x22FFFFFF);
+        // 4 ô giáp quanh nhân vật, xen kẽ trái / phải, mỗi ô nối tới đúng bộ phận (mũ, giáp, quần, giày)
+        int ex0 = CPX + CPW / 2, fy = ARM_FEET;
+        int[] aOff = {-120, -77, -38, -8};  // tâm ô so với chân nhân vật
+        int[] aTgt = {-17, 34, -17, 17};    // điểm nối so với trục nhân vật (âm = bên trái)
+        for (int a2 = 0; a2 < 4; a2++) {
+            boolean left = (a2 & 1) == 0;
+            int sx = left ? CPX + 9 : CPX + CPW - 9 - 22;
+            int cyS = fy + aOff[a2], sy = cyS - 11;
+            int tx = ex0 + aTgt[a2];
+            int lx1 = left ? sx + 22 : tx, lx2 = left ? tx : sx;
+            Draw.fill(lx1, cyS, lx2, cyS + 1, 0xFFB4B9BE);
+            Draw.disc(tx + 0.5f, cyS + 0.5f, 2.2f, 0xFFF0A30A);
+            Draw.fill(sx, sy, sx + 22, sy + 22, 0xFFEDEEEF);
+            Draw.fill(sx + 1, sy + 1, sx + 21, sy + 21, 0xFF7C848B);
+            Draw.fill(sx + 1, sy + 1, sx + 21, sy + 3, 0x55000000);   // bóng lõm phía trên ô
+            Draw.fill(sx + 1, sy + 1, sx + 3, sy + 21, 0x33000000);
+            Draw.fill(sx + 1, sy + 19, sx + 21, sy + 21, 0x22FFFFFF); // ánh sáng mép dưới
             ItemStack ar = mc.player != null ? mc.player.getItemBySlot(ARMOR[a2]) : ItemStack.EMPTY;
             if (!ar.isEmpty()) Draw.item(ar, sx + 3, sy + 3);
         }
-
-        // thanh "HP" = số tính năng đang bật
-        int en = 0, total = LunarLite.MODULES.size();
-        for (Module m : LunarLite.MODULES) if (m.enabled) en++;
-        int by = CPY + CPH - 26;
-        Draw.hbar(CPX + 14, by, CPW - 28, 7, total == 0 ? 0f : en / (float) total, Skin.OK_GREEN, 0xFF8E949B);
-        Draw.centered(en + " / " + total + " tính năng", CPX + CPW / 2f, by + 10, 0xFF50565C, false);
         Draw.pop();
+    }
+
+    /**
+     * Nhân vật vẽ sau cùng (như bản 1.8.9) để không bị danh sách đè: bóng mềm dưới chân + mô hình 3D khoá tư thế
+     * (không đi bộ, không cúi, không vung tay, không giật khi bị đánh), đứng thẳng nhìn thẳng ra trước.
+     */
+    private void drawHero(float pa, long now) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || pa <= 0.5f) return;
+        float offX = gdx() - (1f - pa) * 36f;
+        int ex = CPX + CPW / 2, ey = ARM_FEET;
+        Draw.push();
+        Draw.translate(offX, 0f);
+        Draw.rrect(ex - 32, ey - 1, ex + 32, ey + 5, 3, 0x14000000);
+        Draw.rrect(ex - 24, ey, ex + 24, ey + 4, 2, 0x1E000000);
+        Draw.rrect(ex - 15, ey + 1, ex + 15, ey + 3, 1, 0x2A000000);
+        Draw.pop();
+
+        // GuiEntityRenderState đặt tâm hộp ở giữa thân: chân = tâm + (cao/2 + 0.0625) * scale, scale = 72 như 1.8.9
+        final float S = 72f;
+        float cyBox = ey - (0.9f + 0.0625f) * S;
+        float sx1 = txX0 + (ex - 60 + offX) * txK, sx2 = txX0 + (ex + 60 + offX) * txK;
+        float sy1 = txY0 + (cyBox - 75f) * txK, sy2 = txY0 + (cyBox + 75f) * txK;
+        boolean drew;
+        Runnable restore = lockPose(mc.player);
+        try {
+            // chuột đặt đúng tâm hộp => yaw = pitch = 0, nhân vật nhìn thẳng
+            drew = drawModel(Draw.g, Math.round(sx1), Math.round(sy1), Math.round(sx2), Math.round(sy2),
+                    S * txK, (sx1 + sx2) / 2f, (sy1 + sy2) / 2f, mc.player);
+        } finally {
+            restore.run();
+        }
+        if (drew) return;
+
+        // không gọi được mô hình 3D: vẽ khung mặt
+        Draw.push();
+        Draw.translate(offX, 0f);
+        int hs = 64, hx = ex - hs / 2, hy = CPY + 70;
+        Draw.rrect(hx - 4, hy - 4, hx + hs + 4, hy + hs + 4, 6, 0xFFB4B9BE);
+        Draw.rrect(hx - 3, hy - 3, hx + hs + 3, hy + hs + 3, 5, 0xFFEDEEEF);
+        boolean ok = false;
+        if (mc.getConnection() != null) ok = Draw.head(mc.getConnection().getPlayerInfo(mc.player.getUUID()), hx, hy, hs);
+        if (!ok) {
+            Draw.rrect(hx, hy, hx + hs, hy + hs, 3, 0xFF9AA0A6);
+            String nm = mc.player.getName().getString();
+            Draw.centered(nm.isEmpty() ? "?" : nm.substring(0, 1).toUpperCase(), ex, hy + hs / 2f - 4, 0xFFFFFFFF, true);
+        }
+        Draw.pop();
+    }
+
+    // ---- khoá tư thế bằng reflection (tên field đổi giữa các bản 26.x; sai tên thì bỏ qua, không crash)
+
+    private static Object getF(Object o, String n) {
+        for (Class<?> c = o.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = c.getDeclaredField(n);
+                f.setAccessible(true);
+                return f.get(o);
+            } catch (NoSuchFieldException ignored) {
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static boolean setF(Object o, String n, Object v) {
+        for (Class<?> c = o.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = c.getDeclaredField(n);
+                f.setAccessible(true);
+                f.set(o, v);
+                return true;
+            } catch (NoSuchFieldException ignored) {
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private static Runnable lockPose(Object p) {
+        final java.util.List<Object[]> saved = new java.util.ArrayList<>();
+        final Object[][] zero = {
+            {p, "hurtTime", 0}, {p, "swingTime", 0}, {p, "swinging", false},
+            {p, "attackAnim", 0f}, {p, "oAttackAnim", 0f}
+        };
+        for (Object[] z : zero) {
+            Object old = getF(z[0], (String) z[1]);
+            if (old != null && setF(z[0], (String) z[1], z[2])) saved.add(new Object[] {z[0], z[1], old});
+        }
+        Object wa = getF(p, "walkAnimation");
+        if (wa != null) {
+            for (String n : new String[] {"speedOld", "speed", "position"}) {
+                Object old = getF(wa, n);
+                if (old != null && setF(wa, n, 0f)) saved.add(new Object[] {wa, n, old});
+            }
+        }
+        // đang cúi (shift) thì đứng thẳng khi vẽ
+        for (String n : new String[] {"shiftKeyDown", "crouching"}) {
+            Object old = getF(p, n);
+            if (old instanceof Boolean && ((Boolean) old) && setF(p, n, false)) saved.add(new Object[] {p, n, old});
+        }
+        return () -> {
+            for (Object[] r : saved) setF(r[0], (String) r[1], r[2]);
+        };
+    }
+
+    private static java.lang.reflect.Method modelM;
+    private static boolean modelTried;
+
+    /** Vẽ mô hình 3D người chơi như màn hình kho đồ. Tìm bằng reflection vì tên hàm đổi giữa các bản 26.x. */
+    private static boolean drawModel(Object g, int x1, int y1, int x2, int y2, float scale, float mx, float my, Object entity) {
+        if (g == null || x2 <= x1 || y2 <= y1) return false;
+        if (!modelTried) {
+            modelTried = true;
+            java.lang.reflect.Method best = null;
+            for (java.lang.reflect.Method m : net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethods()) {
+                Class<?>[] pt = m.getParameterTypes();
+                if (!java.lang.reflect.Modifier.isStatic(m.getModifiers()) || !m.getName().contains("ntityInInventory")) continue;
+                if (pt.length != 10 || !pt[0].isAssignableFrom(g.getClass()) || !pt[9].isAssignableFrom(entity.getClass())) continue;
+                if (best == null || m.getName().contains("FollowsMouse")) best = m;
+            }
+            modelM = best;
+        }
+        if (modelM == null) return false;
+        try {
+            Class<?>[] pt = modelM.getParameterTypes();
+            double[] v = {x1, y1, x2, y2, scale, 0.0625, mx, my};
+            Object[] a = new Object[10];
+            a[0] = g;
+            for (int i = 0; i < 8; i++) a[i + 1] = num(pt[i + 1], v[i]);
+            a[9] = entity;
+            modelM.invoke(null, a);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            modelM = null;
+            return false;
+        }
+    }
+
+    private static Object num(Class<?> t, double v) {
+        if (t == int.class) return (int) Math.round(v);
+        if (t == float.class) return (float) v;
+        return v;
     }
 
     // ---- trang chủ
@@ -720,6 +872,7 @@ public class MenuScreen extends Screen {
 
         drawCircles(hc, k, now);
         drawList(hr, k);
+        drawHero(pa, now);
     }
 
     private void drawCircles(int hc, float k, long now) {
@@ -899,12 +1052,23 @@ public class MenuScreen extends Screen {
         for (DRow r : rows) {
             int ry = top + r.y - sc;
             if (ry + r.h < top || ry > bottom) continue;
-            boolean over = detailActive() && Draw.in(mx, my, px, Math.max(ry, top), pw, Math.min(r.h, bottom - ry)) && r.kind != K_HEADER;
+            float st = r.kind == K_HEADER ? 1f : stagger(r.id);
+            boolean over = st > 0.7f && detailActive() && Draw.in(mx, my, px, Math.max(ry, top), pw, Math.min(r.h, bottom - ry)) && r.kind != K_HEADER;
             r.hov += ((over ? 1f : 0f) - r.hov) * k;
+            Draw.push();
+            Draw.translate((1f - st) * 22f, 0f);
             drawDRow(r, px, ry, pw);
+            Draw.pop();
         }
         Draw.endScissor();
         if (contentH > setViewH()) scrollbar(top, setViewH(), contentH, setScroll);
+    }
+
+    /** Hàng tuỳ chỉnh trượt vào lần lượt khi mở / đổi tính năng (như Btn.stagger của bản 1.8.9). */
+    private static float stagger(int id) {
+        if (!AnimationsModule.menu()) return 1f;
+        float t = (System.currentTimeMillis() - animStart) * AnimationsModule.speed() / 240f - Math.min(id, 10) * 0.06f;
+        return AnimationsModule.ease(t);
     }
 
     private boolean detailActive() { return dshift > 0.9f && confirmMod == null; }

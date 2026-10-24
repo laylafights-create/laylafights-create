@@ -92,8 +92,20 @@ public final class Skin {
     /** Khung chuyển màu dọc (vẽ từng dòng, không phụ thuộc API gradient của 26.2). */
     public static void vgrad(int x1, int y1, int x2, int y2, int c1, int c2) {
         int h = y2 - y1;
-        if (h <= 0) return;
-        for (int i = 0; i < h; i++) Draw.fill(x1, y1 + i, x2, y1 + i + 1, Draw.lerp(c1, c2, h == 1 ? 0f : i / (float) (h - 1)));
+        if (h <= 0 || x2 <= x1) return;
+        if (c1 == c2) { Draw.fill(x1, y1, x2, y2, c1); return; }
+        // số dải = số mức màu thật sự khác nhau (màu 8-bit/kênh) => cùng hình ảnh, ít lệnh vẽ hơn hẳn
+        int d = 0;
+        for (int sft = 0; sft < 32; sft += 8) d = Math.max(d, Math.abs(((c1 >>> sft) & 255) - ((c2 >>> sft) & 255)));
+        int bands = Math.max(1, Math.min(h, d + 1));
+        int prev = y1;
+        for (int b = 1; b <= bands; b++) {
+            int ye = b == bands ? y2 : y1 + Math.round(h * (b / (float) bands));
+            if (ye <= prev) continue;
+            float t = bands == 1 ? 0f : (b - 1) / (float) (bands - 1);
+            Draw.fill(x1, prev, x2, ye, Draw.lerp(c1, c2, t));
+            prev = ye;
+        }
     }
 
     /** Khung SAO không nền: chỉ có vạch màu nhấn dưới tiêu đề và dấu ngoặc ở bốn góc. */
