@@ -54,23 +54,44 @@ public final class Compat {
         throw new NoSuchMethodError("Minecraft/Gui#setScreenAndShow|setScreen");
     }
 
-    /** Màn hình đang mở: ở 26.2 là field {@code Gui.screen} (trước đó {@code Minecraft.screen}). */
+    private static java.lang.reflect.Field screenField;
+    private static Object screenOwner;
+    private static boolean screenFieldTried;
+    private static java.lang.reflect.Method fpsM;
+    private static boolean fpsTried;
+
+    /** Màn hình đang mở: ở 26.2 là field {@code Gui.screen} (trước đó {@code Minecraft.screen}). Field được tìm một lần. */
     public static Screen screen() {
         Minecraft mc = Minecraft.getInstance();
         Object[] owners = {mc.gui, mc};
-        for (Object owner : owners) {
-            if (owner == null) continue;
-            for (Class<?> c = owner.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-                try {
-                    java.lang.reflect.Field f = c.getDeclaredField("screen");
-                    if (!Screen.class.isAssignableFrom(f.getType())) continue;
-                    f.setAccessible(true);
-                    return (Screen) f.get(owner);
-                } catch (NoSuchFieldException ignored) {
-                } catch (ReflectiveOperationException | RuntimeException e) {
-                    break;
+        if (!screenFieldTried) {
+            screenFieldTried = true;
+            outer:
+            for (Object owner : owners) {
+                if (owner == null) continue;
+                for (Class<?> c = owner.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                    try {
+                        java.lang.reflect.Field f = c.getDeclaredField("screen");
+                        if (!Screen.class.isAssignableFrom(f.getType())) continue;
+                        f.setAccessible(true);
+                        screenField = f;
+                        screenOwner = owner == mc ? mc : null; // null = lấy mc.gui mỗi lần
+                        break outer;
+                    } catch (NoSuchFieldException ignored) {
+                    } catch (RuntimeException e) {
+                        break;
+                    }
                 }
             }
+        }
+        if (screenField != null) {
+            try {
+                Object owner = screenOwner != null ? screenOwner : mc.gui;
+                if (owner != null) return (Screen) screenField.get(owner);
+            } catch (ReflectiveOperationException | RuntimeException ignored) { }
+        }
+        for (Object owner : owners) {
+            if (owner == null) continue;
             for (String n : new String[] {"screen", "getScreen"}) {
                 Method m = find(owner.getClass(), n, 0);
                 if (m == null || !Screen.class.isAssignableFrom(m.getReturnType())) continue;
@@ -82,19 +103,22 @@ public final class Compat {
         return null;
     }
 
-    /** Số khung hình hiện tại (API {@code Minecraft#getFps} ở 26.x; thử cả field {@code fps} nếu đổi tên). */
+    /** Số khung hình hiện tại (API {@code Minecraft#getFps} ở 26.x; hàm được tìm một lần). */
     public static int fps() {
         Minecraft mc = Minecraft.getInstance();
+        if (!fpsTried) {
+            fpsTried = true;
+            fpsM = find(mc.getClass(), "getFps", 0);
+        }
         try {
-            return ((Number) call(mc, "getFps")).intValue();
-        } catch (RuntimeException | NoSuchMethodError e) {
-            try {
-                java.lang.reflect.Field f = Minecraft.class.getDeclaredField("fps");
-                f.setAccessible(true);
-                return ((Number) f.get(null)).intValue();
-            } catch (ReflectiveOperationException | RuntimeException e2) {
-                return 0;
-            }
+            if (fpsM != null) return ((Number) fpsM.invoke(mc)).intValue();
+        } catch (ReflectiveOperationException | RuntimeException ignored) { }
+        try {
+            java.lang.reflect.Field f = Minecraft.class.getDeclaredField("fps");
+            f.setAccessible(true);
+            return ((Number) f.get(null)).intValue();
+        } catch (ReflectiveOperationException | RuntimeException e2) {
+            return 0;
         }
     }
 

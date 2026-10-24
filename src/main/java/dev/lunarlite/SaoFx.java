@@ -43,11 +43,68 @@ public final class SaoFx {
         return EVENTS.computeIfAbsent(name, n -> SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(LunarLite.MODID, n)));
     }
 
-    /** Âm UI của mod (menu.open, menu.click...); an toàn nếu thiếu âm thanh. */
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("ZhwiiClient");
+    private static final Set<String> warned = new HashSet<>();
+
+    /** Âm UI của mod (menu.open, menu.click...). Nếu sounds.json không nạp được thì dùng âm vanilla để vẫn có tiếng. */
     public static void ui(String name, float pitch) {
+        Minecraft mc = Minecraft.getInstance();
         try {
-            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(event(name), pitch));
-        } catch (RuntimeException ignored) { }
+            SimpleSoundInstance inst = SimpleSoundInstance.forUI(event(name), pitch);
+            if (resolves(name, inst, mc)) {
+                mc.getSoundManager().play(inst);
+                return;
+            }
+            if (warned.add(name)) LOG.warn("[Zhwii] Không tìm thấy sound event zhwii:{} (sounds.json / .ogg chưa nạp?) - dùng âm vanilla", name);
+        } catch (RuntimeException | LinkageError e) {
+            if (warned.add(name)) LOG.warn("[Zhwii] Lỗi phát âm zhwii:" + name + " - dùng âm vanilla", e);
+        }
+        try {
+            boolean chime = name.equals("menu.open") || name.equals("menu.select") || name.equals("menu.on") || name.equals("alert.enemy");
+            net.minecraft.sounds.SoundEvent ev = chime
+                    ? net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING.value()
+                    : net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value();
+            float p = switch (name) {
+                case "menu.open" -> 1.6f;
+                case "menu.close", "menu.off" -> 0.8f;
+                case "menu.select" -> 1.3f;
+                case "menu.on" -> 1.5f;
+                case "menu.hover" -> 1.9f;
+                case "alert.enemy" -> 1.5f;
+                case "menu.back" -> 0.85f;
+                default -> 1.2f;
+            };
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(ev, p * pitch));
+        } catch (RuntimeException | LinkageError ignored) { }
+    }
+
+    private static java.lang.reflect.Method resolveM;
+    private static boolean resolveTried;
+    private static final Set<String> okSounds = new HashSet<>();
+
+    /** Gọi {@code SoundInstance#resolve(SoundManager)} (tìm hàm một lần, nhớ tên âm đã nạp được): false = sound event chưa nạp. */
+    private static boolean resolves(String name, SoundInstance inst, Minecraft mc) {
+        if (okSounds.contains(name)) return true;
+        try {
+            if (!resolveTried) {
+                resolveTried = true;
+                Class<?> smc = mc.getSoundManager().getClass();
+                for (java.lang.reflect.Method m : inst.getClass().getMethods()) {
+                    if (m.getName().equals("resolve") && m.getParameterCount() == 1
+                            && m.getParameterTypes()[0].isAssignableFrom(smc)) {
+                        resolveM = m;
+                        break;
+                    }
+                }
+            }
+            if (resolveM == null) return true;
+            if (resolveM.invoke(inst, mc.getSoundManager()) != null) {
+                okSounds.add(name);
+                return true;
+            }
+            return false;
+        } catch (ReflectiveOperationException | RuntimeException ignored) { }
+        return true;
     }
 
     /** Âm lặp không suy giảm theo khoảng cách (cảnh báo máu thấp). */
