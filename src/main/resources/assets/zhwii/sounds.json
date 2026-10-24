@@ -11,6 +11,8 @@
   "menu.on":     { "category": "master", "sounds": [ { "name": "sao/confirmsound", "volume": 0.6, "pitch": 1.3 } ] },
   "menu.off":    { "category": "master", "sounds": [ { "name": "sao/backsound",    "volume": 0.55, "pitch": 0.85 } ] },
 
+  "alert.enemy": { "category": "master", "sounds": [ { "name": "sao/confirmsound", "volume": 1.0, "pitch": 1.6 } ] },
+
   "sao.death":           { "category": "master", "sounds": [ { "name": "sao/sao_death",       "volume": 0.9 } ] },
   "sao.critical_health": { "category": "master", "sounds": [ { "name": "sao/critical_health", "volume": 0.8 } ] }
 }
