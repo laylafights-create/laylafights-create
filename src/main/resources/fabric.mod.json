@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "zhwii",
+  "version": "${version}",
+  "name": "Zhwii Client",
+  "description": "Zhwii Client - client HUD / PvP tiếng Việt cho Minecraft 26.2 (Fabric).",
+  "authors": [
+    "Zhwii Client"
+  ],
+  "icon": "assets/zhwii/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.lunarlite.LunarLite"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "mixins": [
+    {
+      "config": "zhwii.mixins.json",
+      "environment": "client"
+    }
+  ]
+}

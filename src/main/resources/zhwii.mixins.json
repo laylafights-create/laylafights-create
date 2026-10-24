@@ -1,0 +1,7 @@
+{
+  "required": false,
+  "package": "dev.lunarlite.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["HideArmorMixin", "ScreenBackgroundMixin", "ParticleEngineMixin", "ChatScreenMixin", "MouseHandlerMixin", "ContainerScreenMixin", "MinecraftGlowMixin", "EntityGlowColorMixin", "ChatComponentMixin"],
+  "injectors": { "defaultRequire": 0 }
+}
