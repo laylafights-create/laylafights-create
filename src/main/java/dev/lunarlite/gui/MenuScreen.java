@@ -739,33 +739,46 @@ public class MenuScreen extends Screen {
 
     // ---- khoá tư thế bằng reflection (tên field đổi giữa các bản 26.x; sai tên thì bỏ qua, không crash)
 
-    private static Object getF(Object o, String n) {
-        for (Class<?> c = o.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+    private static final java.util.Map<String, java.lang.reflect.Field> FIELDS = new java.util.HashMap<>();
+
+    /** Tìm field một lần rồi nhớ (kể cả khi không có) - tránh ném NoSuchFieldException mỗi khung hình. */
+    private static java.lang.reflect.Field field(Class<?> cls, String n) {
+        String key = cls.getName() + "#" + n;
+        if (FIELDS.containsKey(key)) return FIELDS.get(key);
+        java.lang.reflect.Field found = null;
+        for (Class<?> c = cls; c != null && c != Object.class && found == null; c = c.getSuperclass()) {
             try {
-                java.lang.reflect.Field f = c.getDeclaredField(n);
-                f.setAccessible(true);
-                return f.get(o);
+                found = c.getDeclaredField(n);
+                found.setAccessible(true);
             } catch (NoSuchFieldException ignored) {
-            } catch (ReflectiveOperationException | RuntimeException e) {
-                return null;
+            } catch (RuntimeException e) {
+                found = null;
+                break;
             }
         }
-        return null;
+        FIELDS.put(key, found);
+        return found;
+    }
+
+    private static Object getF(Object o, String n) {
+        java.lang.reflect.Field f = field(o.getClass(), n);
+        if (f == null) return null;
+        try {
+            return f.get(o);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     private static boolean setF(Object o, String n, Object v) {
-        for (Class<?> c = o.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-            try {
-                java.lang.reflect.Field f = c.getDeclaredField(n);
-                f.setAccessible(true);
-                f.set(o, v);
-                return true;
-            } catch (NoSuchFieldException ignored) {
-            } catch (ReflectiveOperationException | RuntimeException e) {
-                return false;
-            }
+        java.lang.reflect.Field f = field(o.getClass(), n);
+        if (f == null) return false;
+        try {
+            f.set(o, v);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false;
         }
-        return false;
     }
 
     private static Runnable lockPose(Object p) {
